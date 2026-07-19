@@ -39,6 +39,6 @@ async def batch_get_resources(
         return f"Error: Maximum 10 URLs allowed per batch request. You provided {len(url_list)}."
 
     # Execute batch
-    results = service.batch_get(url_list)
+    results = await service.batch_get(url_list)
 
     return f"Batch request completed for {len(url_list)} URLs. Results: {json.dumps(results)}"

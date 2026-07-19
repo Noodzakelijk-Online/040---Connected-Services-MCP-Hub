@@ -18,7 +18,7 @@ class BatchService:
         """
         self.client = client
 
-    def batch_get(self, urls: List[str]) -> List[Dict[str, Any]]:
+    async def batch_get(self, urls: List[str]) -> List[Dict[str, Any]]:
         """
         Execute multiple GET requests in a single batch.
 
@@ -28,11 +28,20 @@ class BatchService:
         Returns:
             List of response objects
         """
-        if len(urls) > 10:
+        if not urls or len(urls) > 10:
             raise ValueError("Maximum 10 URLs allowed per batch request")
+        if any(
+            not url.startswith("/")
+            or url.startswith("//")
+            or "://" in url
+            or "\r" in url
+            or "\n" in url
+            for url in urls
+        ):
+            raise ValueError("Batch URLs must be relative Trello API paths beginning with one slash")
 
         # Join URLs with comma
         urls_param = ",".join(urls)
 
-        response = self.client.get("/batch", params={"urls": urls_param})
+        response = await self.client.GET("/batch", params={"urls": urls_param})
         return response

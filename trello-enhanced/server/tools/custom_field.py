@@ -8,20 +8,23 @@ from server.dtos.create_custom_field import CreateCustomFieldPayload
 from server.dtos.set_custom_field_value import SetCustomFieldValuePayload
 from server.validators import ValidationService
 from server.trello import client
+from server.active_context import active_context
 
 service = CustomFieldService(client)
 validator = ValidationService(client)
 
 
-async def get_board_custom_fields(ctx: Context, board_id: str) -> str:
+async def get_board_custom_fields(ctx: Context, board_id: str | None = None) -> str:
     """Get all custom fields defined on a board."""
+    board_id = active_context.resolve_board(ctx, board_id)
     await validator.validate_board_exists(board_id)
     fields = service.get_board_custom_fields(board_id)
     return f"Found {len(fields)} custom field(s)"
 
 
-async def create_custom_field(ctx: Context, board_id: str, name: str, field_type: str, pos: str = "bottom") -> str:
+async def create_custom_field(ctx: Context, name: str, field_type: str, pos: str = "bottom", board_id: str | None = None) -> str:
     """Create a new custom field on a board."""
+    board_id = active_context.resolve_board(ctx, board_id)
     await validator.validate_board_exists(board_id)
     payload = CreateCustomFieldPayload(id_model=board_id, name=name, type=field_type, pos=pos)
     field = service.create_custom_field(payload)

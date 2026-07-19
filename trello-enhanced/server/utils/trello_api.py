@@ -1,6 +1,7 @@
 # trello_api.py
 import asyncio
 import logging
+import re
 from typing import Optional
 
 import httpx
@@ -18,6 +19,11 @@ from server.exceptions import (
 logger = logging.getLogger(__name__)
 
 TRELLO_API_BASE = "https://api.trello.com/1"
+_SECRET_QUERY_VALUE = re.compile(r"(?i)(key|token)=([^&\s]+)")
+
+
+def _redact_secrets(value: str) -> str:
+    return _SECRET_QUERY_VALUE.sub(r"\1=[REDACTED]", value)
 
 
 class TrelloClient:
@@ -51,7 +57,7 @@ class TrelloClient:
             Specific TrelloMCPError subclass based on status code
         """
         status_code = error.response.status_code
-        response_text = error.response.text
+        response_text = _redact_secrets(error.response.text)
 
         logger.error(
             f"HTTP {status_code} error for {method} {endpoint}: {response_text}"

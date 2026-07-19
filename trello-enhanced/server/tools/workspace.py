@@ -14,6 +14,7 @@ from server.services.workspace import WorkspaceService
 from server.validators import ValidationService
 from server.trello import client
 from server.exceptions import TrelloMCPError
+from server.active_context import active_context
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ async def get_workspaces(ctx: Context) -> List[TrelloOrganization]:
         raise
 
 
-async def get_workspace(ctx: Context, workspace_id: str) -> TrelloOrganization:
+async def get_workspace(ctx: Context, workspace_id: str | None = None) -> TrelloOrganization:
     """Retrieves a specific workspace/organization by its ID.
 
     Args:
@@ -54,6 +55,7 @@ async def get_workspace(ctx: Context, workspace_id: str) -> TrelloOrganization:
         TrelloOrganization: The workspace object containing workspace details.
     """
     try:
+        workspace_id = active_context.resolve_workspace(ctx, workspace_id)
         logger.info(f"Getting workspace with ID: {workspace_id}")
 
         # Validate workspace exists
@@ -75,7 +77,7 @@ async def get_workspace(ctx: Context, workspace_id: str) -> TrelloOrganization:
 
 
 async def get_workspace_boards(
-    ctx: Context, workspace_id: str, filter_value: str = "all"
+    ctx: Context, filter_value: str = "all", workspace_id: str | None = None
 ) -> List[TrelloBoard]:
     """Retrieves all boards in a workspace/organization.
 
@@ -88,6 +90,7 @@ async def get_workspace_boards(
         List[TrelloBoard]: A list of board objects in the workspace.
     """
     try:
+        workspace_id = active_context.resolve_workspace(ctx, workspace_id)
         logger.info(f"Getting boards for workspace: {workspace_id} with filter: {filter_value}")
 
         # Validate workspace exists
@@ -147,7 +150,7 @@ async def create_workspace(
 
 
 async def update_workspace(
-    ctx: Context, workspace_id: str, payload: UpdateWorkspacePayload
+    ctx: Context, payload: UpdateWorkspacePayload, workspace_id: str | None = None
 ) -> TrelloOrganization:
     """Update an existing workspace/organization.
 
@@ -159,6 +162,7 @@ async def update_workspace(
         TrelloOrganization: The updated workspace object.
     """
     try:
+        workspace_id = active_context.resolve_workspace(ctx, workspace_id)
         logger.info(f"Updating workspace: {workspace_id}")
 
         # Validate workspace exists
@@ -182,7 +186,7 @@ async def update_workspace(
         raise
 
 
-async def delete_workspace(ctx: Context, workspace_id: str) -> dict:
+async def delete_workspace(ctx: Context, workspace_id: str | None = None) -> dict:
     """Delete a workspace/organization permanently.
 
     Args:
@@ -192,6 +196,7 @@ async def delete_workspace(ctx: Context, workspace_id: str) -> dict:
         dict: Confirmation of deletion.
     """
     try:
+        workspace_id = active_context.resolve_workspace(ctx, workspace_id)
         logger.info(f"Deleting workspace: {workspace_id}")
 
         # Validate workspace exists

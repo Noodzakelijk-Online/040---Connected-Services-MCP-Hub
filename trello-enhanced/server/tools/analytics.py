@@ -8,12 +8,13 @@ from mcp.server.fastmcp import Context
 from server.trello import client
 from server.services.analytics import AnalyticsService
 from server.validators.validation_service import ValidationService
+from server.active_context import active_context
 
-nservice = AnalyticsService(client)
+service = AnalyticsService(client)
 validator = ValidationService(client)
 
 
-async def get_board_statistics(ctx: Context, board_id: str) -> str:
+async def get_board_statistics(ctx: Context, board_id: str | None = None) -> str:
     """
     Get comprehensive statistics and metrics for a board.
 
@@ -34,6 +35,7 @@ async def get_board_statistics(ctx: Context, board_id: str) -> str:
     # Using global validator
     # Using global service
 
+    board_id = active_context.resolve_board(ctx, board_id)
     # Validate board exists
     await validator.validate_board_exists(board_id)
 
@@ -49,7 +51,7 @@ async def get_board_statistics(ctx: Context, board_id: str) -> str:
 
 
 
-async def get_card_cycle_time(ctx: Context, board_id: str) -> str:
+async def get_card_cycle_time(ctx: Context, board_id: str | None = None) -> str:
     """
     Calculate average time cards spend in each list (cycle time analysis).
 
@@ -66,6 +68,7 @@ async def get_card_cycle_time(ctx: Context, board_id: str) -> str:
     # Using global validator
     # Using global service
 
+    board_id = active_context.resolve_board(ctx, board_id)
     # Validate board exists
     await validator.validate_board_exists(board_id)
 

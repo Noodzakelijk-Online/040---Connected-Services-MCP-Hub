@@ -1,6 +1,6 @@
 """Public Trello data models used by tools and services."""
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
@@ -38,6 +38,13 @@ class TrelloLabel(BaseModel):
     color: str | None = None
 
 
+class TrelloComment(BaseModel):
+    id: str
+    author_id: str
+    date: str
+    text: str
+
+
 class TrelloCard(BaseModel):
     id: str
     name: str
@@ -49,6 +56,12 @@ class TrelloCard(BaseModel):
     pos: float
     labels: list[TrelloLabel] = []
     due: str | None = None
+    idMembers: list[str] = []
+    dueComplete: bool = False
+    cover: Dict[str, Any] | None = None
+    subscribed: bool = False
+    attachments: list[Dict[str, Any]] = []
+    comments: list[TrelloComment] = []
 
 
 class TrelloOrganization(BaseModel):
@@ -67,6 +80,7 @@ __all__ = [
     "TrelloAttachment",
     "TrelloBoard",
     "TrelloCard",
+    "TrelloComment",
     "TrelloCustomField",
     "TrelloCustomFieldItem",
     "TrelloCustomFieldOption",
