@@ -33,6 +33,15 @@ class TrelloLabel(BaseModel):
     color: str | None = None
 
 
+class TrelloComment(BaseModel):
+    """Read-only Trello card-comment summary."""
+
+    id: str
+    author_id: str
+    date: str
+    text: str
+
+
 class TrelloCard(BaseModel):
     """Model representing a Trello card."""
 
@@ -51,6 +60,7 @@ class TrelloCard(BaseModel):
     cover: Dict[str, Any] | None = None
     subscribed: bool = False
     attachments: List[Dict[str, Any]] = []
+    comments: List[TrelloComment] = []
 
 
 class TrelloWebhook(BaseModel):

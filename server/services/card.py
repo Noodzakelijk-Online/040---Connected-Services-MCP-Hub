@@ -25,7 +25,11 @@ class CardService:
         Returns:
             TrelloCard: The card object containing card details.
         """
-        response = await self.client.GET(f"/cards/{card_id}", params={"attachments": "true"})
+        response = await self.client.GET(
+            f"/cards/{card_id}",
+            params={"attachments": "true", "actions": "commentCard"},
+        )
+        response["comments"] = self._parse_comments(response.get("actions", []))
         return TrelloCard(**response)
 
     async def get_cards(
@@ -89,6 +93,20 @@ class CardService:
             Dict[str, Any]: The response from the delete operation.
         """
         return await self.client.DELETE(f"/cards/{card_id}")
+
+    @staticmethod
+    def _parse_comments(actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Convert Trello comment actions to stable card-comment summaries."""
+        return [
+            {
+                "id": action.get("id"),
+                "author_id": action.get("idMemberCreator"),
+                "date": action.get("date"),
+                "text": action.get("data", {}).get("text", ""),
+            }
+            for action in actions
+            if action.get("type") == "commentCard"
+        ]
 
     async def archive_card(self, card_id: str) -> TrelloCard:
         """Archives a card (sets closed=True). Different from delete — card is preserved.
