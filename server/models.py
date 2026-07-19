@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 from server.models.custom_field import TrelloCustomField, TrelloCustomFieldItem, TrelloCustomFieldOption
@@ -46,6 +46,11 @@ class TrelloCard(BaseModel):
     pos: float
     labels: List[TrelloLabel] = []
     due: str | None = None
+    idMembers: List[str] = []
+    dueComplete: bool = False
+    cover: Dict[str, Any] | None = None
+    subscribed: bool = False
+    attachments: List[Dict[str, Any]] = []
 
 
 class TrelloWebhook(BaseModel):

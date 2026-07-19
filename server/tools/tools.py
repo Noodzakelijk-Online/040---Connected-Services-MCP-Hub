@@ -32,6 +32,7 @@ def register_tools(mcp):
     mcp.add_tool(board.create_board)
     mcp.add_tool(board.update_board)
     mcp.add_tool(board.delete_board)
+    mcp.add_tool(board.get_board_members)
 
     # List Tools
     mcp.add_tool(list.get_list)
@@ -46,6 +47,12 @@ def register_tools(mcp):
     mcp.add_tool(card.create_card)
     mcp.add_tool(card.update_card)
     mcp.add_tool(card.delete_card)
+    mcp.add_tool(card.archive_card)
+    mcp.add_tool(card.get_card_comments)
+    mcp.add_tool(card.add_comment_to_card)
+    mcp.add_tool(card.add_member_to_card)
+    mcp.add_tool(card.remove_member_from_card)
+    mcp.add_tool(card.search_cards)
 
     # Checklist Tools
     mcp.add_tool(checklist.get_checklist)
