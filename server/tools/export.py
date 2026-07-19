@@ -6,11 +6,11 @@ MCP tools for export, import, and template operations.
 import json
 from mcp.server.fastmcp import Context
 from server.trello import client
-nservice = ExportService(client)
-validator = ValidationService(client)
 from server.services.export import ExportService
 from server.validators.validation_service import ValidationService
 
+nservice = ExportService(client)
+validator = ValidationService(client)
 
 
 async def export_board(ctx: Context, board_id: str) -> str:

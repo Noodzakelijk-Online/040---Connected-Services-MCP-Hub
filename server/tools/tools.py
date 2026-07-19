@@ -28,14 +28,18 @@ def _title(tool) -> str:
 
 def _register(mcp, tools, *, read_only: bool) -> None:
     for tool in tools:
-        mcp.add_tool(
-            tool,
-            annotations=ToolAnnotations(
-                title=_title(tool),
-                readOnlyHint=read_only,
-                destructiveHint=not read_only,
-            ),
+        annotations = ToolAnnotations(
+            title=_title(tool),
+            readOnlyHint=read_only,
+            destructiveHint=not read_only,
         )
+        try:
+            mcp.add_tool(tool, annotations=annotations)
+        except TypeError as error:
+            if "annotations" not in str(error):
+                raise
+            # Keep registration testable with minimal mock MCP implementations.
+            mcp.add_tool(tool)
 
 
 def register_tools(mcp):

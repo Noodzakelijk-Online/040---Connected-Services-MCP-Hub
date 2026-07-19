@@ -4,9 +4,9 @@ MCP tools for advanced card features.
 
 from mcp.server.fastmcp import Context
 from server.trello import client
-validator = ValidationService(client)
 from server.validators.validation_service import ValidationService
 
+validator = ValidationService(client)
 
 
 async def set_card_due_date(

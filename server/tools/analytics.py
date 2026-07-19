@@ -6,11 +6,11 @@ MCP tools for analytics and reporting.
 import json
 from mcp.server.fastmcp import Context
 from server.trello import client
-nservice = AnalyticsService(client)
-validator = ValidationService(client)
 from server.services.analytics import AnalyticsService
 from server.validators.validation_service import ValidationService
 
+nservice = AnalyticsService(client)
+validator = ValidationService(client)
 
 
 async def get_board_statistics(ctx: Context, board_id: str) -> str:

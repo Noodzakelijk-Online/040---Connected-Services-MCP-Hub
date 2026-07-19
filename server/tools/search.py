@@ -6,10 +6,10 @@ import json
 from mcp.server.fastmcp import Context
 from server.trello import client
 from server.validators import ValidationService
+from server.services.search import SearchService
 
 service = SearchService(client)
 validator = ValidationService(client)
-from server.services.search import SearchService
 
 
 
