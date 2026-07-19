@@ -12,6 +12,7 @@ from server.services.list import ListService
 from server.validators import ValidationService
 from server.trello import client
 from server.exceptions import TrelloMCPError
+from server.active_context import active_context
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ async def get_list(ctx: Context, list_id: str) -> TrelloList:
         raise
 
 
-async def get_lists(ctx: Context, board_id: str) -> List[TrelloList]:
+async def get_lists(ctx: Context, board_id: str | None = None) -> List[TrelloList]:
     """Retrieves all lists on a given board.
 
     Args:
@@ -51,6 +52,7 @@ async def get_lists(ctx: Context, board_id: str) -> List[TrelloList]:
         List[TrelloList]: A list of list objects.
     """
     try:
+        board_id = active_context.resolve_board(ctx, board_id)
         logger.info(f"Getting lists for board: {board_id}")
         # Validate board exists
         await validator.validate_board_exists(board_id)
@@ -70,7 +72,7 @@ async def get_lists(ctx: Context, board_id: str) -> List[TrelloList]:
 
 
 async def create_list(
-    ctx: Context, board_id: str, name: str, pos: str = "bottom"
+    ctx: Context, name: str, pos: str = "bottom", board_id: str | None = None
 ) -> TrelloList:
     """Creates a new list on a given board.
 
@@ -83,6 +85,7 @@ async def create_list(
         TrelloList: The newly created list object.
     """
     try:
+        board_id = active_context.resolve_board(ctx, board_id)
         logger.info(f"Creating list '{name}' in board: {board_id}")
         # Validate board exists
         await validator.validate_board_exists(board_id)

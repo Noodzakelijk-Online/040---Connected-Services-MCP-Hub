@@ -1,6 +1,6 @@
-"""
-This module contains tools for managing Trello boards, lists, cards, and workspaces.
-"""
+"""Register the complete Trello MCP tool surface with safety annotations."""
+
+from mcp.types import ToolAnnotations
 
 from server.tools import (
     advanced_card,
@@ -11,6 +11,7 @@ from server.tools import (
     card,
     checklist,
     comment,
+    context,
     custom_field,
     export,
     label,
@@ -18,129 +19,141 @@ from server.tools import (
     member,
     search,
     webhook,
-    workspace
+    workspace,
 )
 
 
+def _title(tool) -> str:
+    return tool.__name__.replace("_", " ").title()
+
+
+def _register(mcp, tools, *, read_only: bool) -> None:
+    for tool in tools:
+        annotations = ToolAnnotations(
+            title=_title(tool),
+            readOnlyHint=read_only,
+            destructiveHint=not read_only,
+        )
+        try:
+            mcp.add_tool(tool, annotations=annotations)
+        except TypeError as error:
+            if "annotations" not in str(error):
+                raise
+            # Keep registration testable with minimal mock MCP implementations.
+            mcp.add_tool(tool)
+
+
 def register_tools(mcp):
-    """Register tools with the MCP server."""
-    # Board Tools
-    mcp.add_tool(board.get_board)
-    mcp.add_tool(board.get_boards)
-    mcp.add_tool(board.get_board_labels)
-    mcp.add_tool(board.create_board_label)
-    mcp.add_tool(board.create_board)
-    mcp.add_tool(board.update_board)
-    mcp.add_tool(board.delete_board)
-
-    # List Tools
-    mcp.add_tool(list.get_list)
-    mcp.add_tool(list.get_lists)
-    mcp.add_tool(list.create_list)
-    mcp.add_tool(list.update_list)
-    mcp.add_tool(list.delete_list)
-
-    # Card Tools
-    mcp.add_tool(card.get_card)
-    mcp.add_tool(card.get_cards)
-    mcp.add_tool(card.create_card)
-    mcp.add_tool(card.update_card)
-    mcp.add_tool(card.delete_card)
-
-    # Checklist Tools
-    mcp.add_tool(checklist.get_checklist)
-    mcp.add_tool(checklist.get_card_checklists)
-    mcp.add_tool(checklist.create_checklist)
-    mcp.add_tool(checklist.update_checklist)
-    mcp.add_tool(checklist.delete_checklist)
-    mcp.add_tool(checklist.add_checkitem)
-    mcp.add_tool(checklist.update_checkitem)
-    mcp.add_tool(checklist.delete_checkitem)
-
-    # Label Tools
-    mcp.add_tool(label.update_label)
-    mcp.add_tool(label.delete_label)
-    mcp.add_tool(label.get_card_labels)
-    mcp.add_tool(label.add_label_to_card)
-    mcp.add_tool(label.remove_label_from_card)
-
-    # Comment Tools
-    mcp.add_tool(comment.get_card_comments)
-    mcp.add_tool(comment.get_card_actions)
-    mcp.add_tool(comment.add_comment)
-    mcp.add_tool(comment.update_comment)
-    mcp.add_tool(comment.delete_comment)
-    mcp.add_tool(comment.get_board_actions)
-
-    # Attachment Tools
-    mcp.add_tool(attachment.get_card_attachments)
-    mcp.add_tool(attachment.attach_url)
-    mcp.add_tool(attachment.delete_attachment)
-    mcp.add_tool(attachment.set_attachment_as_cover)
-
-    # Member Tools
-    mcp.add_tool(member.get_board_members)
-    mcp.add_tool(member.add_board_member)
-    mcp.add_tool(member.update_board_member)
-    mcp.add_tool(member.remove_board_member)
-    mcp.add_tool(member.get_workspace_members)
-    mcp.add_tool(member.get_member)
-    mcp.add_tool(member.get_card_members)
-    mcp.add_tool(member.add_card_member)
-    mcp.add_tool(member.remove_card_member)
-
-    # Webhook Tools
-    mcp.add_tool(webhook.create_webhook)
-    mcp.add_tool(webhook.get_webhook)
-    mcp.add_tool(webhook.list_webhooks)
-    mcp.add_tool(webhook.update_webhook)
-    mcp.add_tool(webhook.delete_webhook)
-
-    # Workspace Tools
-    mcp.add_tool(workspace.get_workspaces)
-    mcp.add_tool(workspace.get_workspace)
-    mcp.add_tool(workspace.get_workspace_boards)
-    mcp.add_tool(workspace.create_workspace)
-    mcp.add_tool(workspace.update_workspace)
-    mcp.add_tool(workspace.delete_workspace)
-
-    # Custom Field Tools (Tier 2)
-    mcp.add_tool(custom_field.get_board_custom_fields)
-    mcp.add_tool(custom_field.create_custom_field)
-    mcp.add_tool(custom_field.update_custom_field)
-    mcp.add_tool(custom_field.delete_custom_field)
-    mcp.add_tool(custom_field.get_card_custom_field_values)
-    mcp.add_tool(custom_field.set_custom_field_value_checkbox)
-    mcp.add_tool(custom_field.set_custom_field_value_text)
-    mcp.add_tool(custom_field.set_custom_field_value_number)
-    mcp.add_tool(custom_field.set_custom_field_value_date)
-    mcp.add_tool(custom_field.set_custom_field_value_list)
-    mcp.add_tool(custom_field.add_custom_field_option)
-    mcp.add_tool(custom_field.update_custom_field_option)
-    mcp.add_tool(custom_field.delete_custom_field_option)
-
-    # Search Tools (Tier 2)
-    mcp.add_tool(search.search_trello)
-    mcp.add_tool(search.search_members)
-
-    # Batch Tools (Tier 2)
-    mcp.add_tool(batch.batch_get_resources)
-
-    # Export & Template Tools (Tier 2/3)
-    mcp.add_tool(export.export_board)
-    mcp.add_tool(export.list_organization_exports)
-    mcp.add_tool(export.create_organization_export)
-    mcp.add_tool(export.create_board_from_template)
-
-    # Advanced Card Tools (Tier 2)
-    mcp.add_tool(advanced_card.set_card_due_date)
-    mcp.add_tool(advanced_card.set_card_due_complete)
-    mcp.add_tool(advanced_card.subscribe_to_card)
-    mcp.add_tool(advanced_card.unsubscribe_from_card)
-    mcp.add_tool(advanced_card.vote_on_card)
-    mcp.add_tool(advanced_card.remove_vote_from_card)
-    mcp.add_tool(advanced_card.set_card_start_date)
-
-    # Analytics Tools (Tier 3)
-    mcp.add_tool(analytics.get_board_statistics)
-    mcp.add_tool(analytics.get_card_cycle_time)
+    """Register all tools and communicate their side-effect risk to MCP hosts."""
+    _register(
+        mcp,
+        (
+            board.get_board,
+            board.get_boards,
+            board.get_board_labels,
+            board.get_board_members,
+            list.get_list,
+            list.get_lists,
+            card.get_card,
+            card.get_cards,
+            card.get_card_comments,
+            card.search_cards,
+            checklist.get_checklist,
+            checklist.get_card_checklists,
+            label.get_card_labels,
+            comment.get_card_comments,
+            comment.get_card_actions,
+            comment.get_board_actions,
+            attachment.get_card_attachments,
+            member.get_board_members,
+            member.get_workspace_members,
+            member.get_member,
+            member.get_card_members,
+            webhook.get_webhook,
+            webhook.list_webhooks,
+            workspace.get_workspaces,
+            workspace.get_workspace,
+            workspace.get_workspace_boards,
+            custom_field.get_board_custom_fields,
+            custom_field.get_card_custom_field_values,
+            search.search_trello,
+            search.search_members,
+            batch.batch_get_resources,
+            export.export_board,
+            export.list_organization_exports,
+            analytics.get_board_statistics,
+            analytics.get_card_cycle_time,
+            context.get_active_context,
+        ),
+        read_only=True,
+    )
+    _register(
+        mcp,
+        (
+            board.create_board_label,
+            board.create_board,
+            board.update_board,
+            board.delete_board,
+            list.create_list,
+            list.update_list,
+            list.delete_list,
+            card.create_card,
+            card.update_card,
+            card.delete_card,
+            card.archive_card,
+            card.add_comment_to_card,
+            card.add_member_to_card,
+            card.remove_member_from_card,
+            checklist.create_checklist,
+            checklist.update_checklist,
+            checklist.delete_checklist,
+            checklist.add_checkitem,
+            checklist.update_checkitem,
+            checklist.delete_checkitem,
+            label.update_label,
+            label.delete_label,
+            label.add_label_to_card,
+            label.remove_label_from_card,
+            comment.add_comment,
+            comment.update_comment,
+            comment.delete_comment,
+            attachment.attach_url,
+            attachment.delete_attachment,
+            attachment.set_attachment_as_cover,
+            member.add_board_member,
+            member.update_board_member,
+            member.remove_board_member,
+            member.add_card_member,
+            member.remove_card_member,
+            webhook.create_webhook,
+            webhook.update_webhook,
+            webhook.delete_webhook,
+            workspace.create_workspace,
+            workspace.update_workspace,
+            workspace.delete_workspace,
+            custom_field.create_custom_field,
+            custom_field.update_custom_field,
+            custom_field.delete_custom_field,
+            custom_field.set_custom_field_value_checkbox,
+            custom_field.set_custom_field_value_text,
+            custom_field.set_custom_field_value_number,
+            custom_field.set_custom_field_value_date,
+            custom_field.set_custom_field_value_list,
+            custom_field.add_custom_field_option,
+            custom_field.update_custom_field_option,
+            custom_field.delete_custom_field_option,
+            export.create_organization_export,
+            export.create_board_from_template,
+            advanced_card.set_card_due_date,
+            advanced_card.set_card_due_complete,
+            advanced_card.subscribe_to_card,
+            advanced_card.unsubscribe_from_card,
+            advanced_card.vote_on_card,
+            advanced_card.remove_vote_from_card,
+            advanced_card.set_card_start_date,
+            context.set_active_board,
+            context.set_active_workspace,
+            context.clear_active_context,
+        ),
+        read_only=False,
+    )

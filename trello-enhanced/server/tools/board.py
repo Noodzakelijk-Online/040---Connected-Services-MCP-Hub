@@ -7,7 +7,7 @@ from typing import List
 
 from mcp.server.fastmcp import Context
 
-from server.models import TrelloBoard, TrelloLabel
+from server.models import TrelloBoard, TrelloLabel, TrelloMember
 from server.dtos.create_label import CreateLabelPayload
 from server.dtos.create_board import CreateBoardPayload
 from server.dtos.update_board import UpdateBoardPayload
@@ -15,6 +15,7 @@ from server.services.board import BoardService
 from server.validators import ValidationService
 from server.trello import client
 from server.exceptions import TrelloMCPError
+from server.active_context import active_context
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ service = BoardService(client)
 validator = ValidationService(client)
 
 
-async def get_board(ctx: Context, board_id: str) -> TrelloBoard:
+async def get_board(ctx: Context, board_id: str | None = None) -> TrelloBoard:
     """Retrieves a specific board by its ID.
 
     Args:
@@ -32,6 +33,7 @@ async def get_board(ctx: Context, board_id: str) -> TrelloBoard:
         TrelloBoard: The board object containing board details.
     """
     try:
+        board_id = active_context.resolve_board(ctx, board_id)
         logger.info(f"Getting board with ID: {board_id}")
         result = await service.get_board(board_id)
         logger.info(f"Successfully retrieved board: {board_id}")
@@ -41,6 +43,7 @@ async def get_board(ctx: Context, board_id: str) -> TrelloBoard:
         logger.error(error_msg)
         await ctx.error(error_msg)
         raise
+
 
 async def get_boards(ctx: Context) -> List[TrelloBoard]:
     """Retrieves all boards for the authenticated user.
@@ -60,7 +63,7 @@ async def get_boards(ctx: Context) -> List[TrelloBoard]:
         raise
 
 
-async def get_board_labels(ctx: Context, board_id: str) -> List[TrelloLabel]:
+async def get_board_labels(ctx: Context, board_id: str | None = None) -> List[TrelloLabel]:
     """Retrieves all labels for a specific board.
 
     Args:
@@ -70,6 +73,7 @@ async def get_board_labels(ctx: Context, board_id: str) -> List[TrelloLabel]:
         List[TrelloLabel]: A list of label objects for the board.
     """
     try:
+        board_id = active_context.resolve_board(ctx, board_id)
         logger.info(f"Getting labels for board: {board_id}")
         result = await service.get_board_labels(board_id)
         logger.info(f"Successfully retrieved {len(result)} labels for board: {board_id}")
@@ -81,7 +85,29 @@ async def get_board_labels(ctx: Context, board_id: str) -> List[TrelloLabel]:
         raise
 
 
-async def create_board_label(ctx: Context, board_id: str, payload: CreateLabelPayload) -> TrelloLabel:
+async def get_board_members(ctx: Context, board_id: str | None = None) -> List[TrelloMember]:
+    """Retrieves all members of a specific board.
+
+    Args:
+        board_id (str): The ID of the board whose members to retrieve.
+
+    Returns:
+        List[TrelloMember]: A list of member objects with id, fullName, and username.
+    """
+    try:
+        board_id = active_context.resolve_board(ctx, board_id)
+        logger.info(f"Getting members for board: {board_id}")
+        result = await service.get_board_members(board_id)
+        logger.info(f"Successfully retrieved {len(result)} members for board: {board_id}")
+        return result
+    except Exception as e:
+        error_msg = f"Failed to get board members: {str(e)}"
+        logger.error(error_msg)
+        await ctx.error(error_msg)
+        raise
+
+
+async def create_board_label(ctx: Context, payload: CreateLabelPayload, board_id: str | None = None) -> TrelloLabel:
     """Create label for a specific board.
 
     Args:
@@ -92,6 +118,7 @@ async def create_board_label(ctx: Context, board_id: str, payload: CreateLabelPa
         TrelloLabel: A label object for the board.
     """
     try:
+        board_id = active_context.resolve_board(ctx, board_id)
         logger.info(f"Creating label {payload.name} label for board: {board_id}")
         # Validate board exists
         await validator.validate_board_exists(board_id)
@@ -143,7 +170,7 @@ async def create_board(ctx: Context, payload: CreateBoardPayload) -> TrelloBoard
         raise
 
 
-async def update_board(ctx: Context, board_id: str, payload: UpdateBoardPayload) -> TrelloBoard:
+async def update_board(ctx: Context, payload: UpdateBoardPayload, board_id: str | None = None) -> TrelloBoard:
     """Update an existing Trello board.
 
     Args:
@@ -154,6 +181,7 @@ async def update_board(ctx: Context, board_id: str, payload: UpdateBoardPayload)
         TrelloBoard: The updated board object.
     """
     try:
+        board_id = active_context.resolve_board(ctx, board_id)
         logger.info(f"Updating board: {board_id}")
 
         # Validate board exists
@@ -182,7 +210,7 @@ async def update_board(ctx: Context, board_id: str, payload: UpdateBoardPayload)
         raise
 
 
-async def delete_board(ctx: Context, board_id: str) -> dict:
+async def delete_board(ctx: Context, board_id: str | None = None) -> dict:
     """Delete a Trello board permanently.
 
     Args:
@@ -192,6 +220,7 @@ async def delete_board(ctx: Context, board_id: str) -> dict:
         dict: Confirmation of deletion.
     """
     try:
+        board_id = active_context.resolve_board(ctx, board_id)
         logger.info(f"Deleting board: {board_id}")
 
         # Validate board exists and user has admin permission

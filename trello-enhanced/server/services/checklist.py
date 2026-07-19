@@ -137,15 +137,18 @@ class ChecklistService:
         Returns:
             Dict: The updated checkitem data
         """
+        checklist = await self.get_checklist(checklist_id)
+        card_id = checklist["idCard"]
+
         data = {}
         if name:
             data["name"] = name
         if checked is not None:
-            data["checked"] = checked
+            data["state"] = "complete" if checked else "incomplete"
         if pos:
             data["pos"] = pos
         return await self.client.PUT(
-            f"/checklists/{checklist_id}/checkItems/{checkitem_id}", data=data
+            f"/cards/{card_id}/checkItem/{checkitem_id}", data=data
         )
 
     async def delete_checkitem(self, checklist_id: str, checkitem_id: str) -> Dict:

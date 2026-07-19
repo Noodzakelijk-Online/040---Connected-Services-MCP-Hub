@@ -37,7 +37,9 @@ starts on port 8000. Do not commit the `.env` files or generated log files.
 ## Run the enhanced Trello server
 
 The full server is in `trello-enhanced/`. Its `pyproject.toml` and `uv.lock`
-are preserved from `trello-mcp-server`:
+are based on the upstream [m0xai/trello-mcp-server](https://github.com/m0xai/trello-mcp-server)
+implementation. It includes upstream PRs #11, #20, #21, #23, and #27, plus
+the current upstream master fix for Trello checkitems.
 
 ```powershell
 cd trello-enhanced
