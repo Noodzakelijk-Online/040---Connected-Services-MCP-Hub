@@ -18,7 +18,7 @@ class ExportService:
         """
         self.client = client
 
-    def export_board(self, board_id: str) -> Dict[str, Any]:
+    async def export_board(self, board_id: str) -> Dict[str, Any]:
         """
         Export a complete board with all data.
 
@@ -46,10 +46,9 @@ class ExportService:
             "customFields": "true"
         }
 
-        response = self.client.get(f"/boards/{board_id}", params=params)
-        return response
+        return await self.client.GET(f"/boards/{board_id}", params=params)
 
-    def list_organization_exports(self, org_id: str) -> List[Dict[str, Any]]:
+    async def list_organization_exports(self, org_id: str) -> List[Dict[str, Any]]:
         """
         List all exports for an organization.
 
@@ -59,10 +58,11 @@ class ExportService:
         Returns:
             List of export objects
         """
-        response = self.client.get(f"/organizations/{org_id}/exports")
-        return response
+        return await self.client.GET(f"/organizations/{org_id}/exports")
 
-    def create_organization_export(self, org_id: str, attachments: bool = True) -> Dict[str, Any]:
+    async def create_organization_export(
+        self, org_id: str, attachments: bool = True
+    ) -> Dict[str, Any]:
         """
         Create a new export for an organization.
 
@@ -74,5 +74,17 @@ class ExportService:
             Export object with status and download URL
         """
         params = {"attachments": str(attachments).lower()}
-        response = self.client.post(f"/organizations/{org_id}/exports", params=params)
-        return response
+        return await self.client.POST(f"/organizations/{org_id}/exports", params=params)
+
+    async def create_board_from_template(
+        self, template_board_id: str, name: str, organization_id: str | None = None
+    ) -> Dict[str, Any]:
+        """Create a board from an existing board template without copying cards."""
+        data = {
+            "name": name,
+            "idBoardSource": template_board_id,
+            "keepFromSource": "cards",
+        }
+        if organization_id:
+            data["idOrganization"] = organization_id
+        return await self.client.POST("/boards", data=data)

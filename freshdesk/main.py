@@ -1,159 +1,214 @@
 #!/usr/bin/env python3
-"""
-Freshdesk MCP Connector - v7.1 Final Stable
-Author: Nuri Muhammet Birlik
-Description: MCP connector for Freshdesk – compatible with all plans (free & paid).
-"""
+"""Freshdesk MCP connector with resilient, non-blocking HTTP helpers."""
 
-import os
-import requests
+import asyncio
 import logging
+import os
 import time
-from typing import Dict, List, Any
-from fastmcp import FastMCP
-from dotenv import load_dotenv
-from functools import lru_cache
+from typing import Any
+from urllib.parse import urlsplit
 
-# -------------------------------------------------------
-# Logging Setup
-# -------------------------------------------------------
+import requests
+from dotenv import load_dotenv
+from fastmcp import FastMCP
+
 LOG_FILE = "freshdesk_mcp.log"
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()]
+    handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()],
 )
 logger = logging.getLogger("FreshdeskMCP")
 
-# -------------------------------------------------------
-# Load environment
-# -------------------------------------------------------
+
+def normalize_domain(value: str) -> str:
+    """Return a hostname-only Freshdesk domain or reject ambiguous URLs."""
+    raw = value.strip()
+    if not raw:
+        return ""
+
+    parsed = urlsplit(raw if "://" in raw else f"https://{raw}")
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+        or parsed.path not in {"", "/"}
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError("FRESHDESK_DOMAIN must contain only a hostname")
+    return parsed.hostname.rstrip(".").lower()
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if not value:
+        return default
+    try:
+        return max(1, int(value))
+    except ValueError:
+        logger.warning("Ignoring invalid %s value", name)
+        return default
+
+
 load_dotenv()
-FRESHDESK_DOMAIN = os.getenv("FRESHDESK_DOMAIN", "").replace("https://", "").replace("http://", "").strip("/")
+FRESHDESK_DOMAIN = normalize_domain(os.getenv("FRESHDESK_DOMAIN", ""))
 FRESHDESK_API_KEY = os.getenv("FRESHDESK_API_KEY")
+FRESHDESK_SEARCH_MAX_PAGES = _positive_int_env("FRESHDESK_SEARCH_MAX_PAGES", 10)
+FRESHDESK_TICKETS_PER_PAGE = 100
 
 if not FRESHDESK_DOMAIN or not FRESHDESK_API_KEY:
-    raise ValueError("❌ Missing FRESHDESK_DOMAIN or FRESHDESK_API_KEY in environment variables")
+    raise ValueError("Missing FRESHDESK_DOMAIN or FRESHDESK_API_KEY in environment variables")
 
 BASE_URL = f"https://{FRESHDESK_DOMAIN}/api/v2"
 
-# -------------------------------------------------------
-# Helper Functions
-# -------------------------------------------------------
+
+def _error_response(message: str, status_code: int | None = None) -> dict[str, Any]:
+    result: dict[str, Any] = {"error": message}
+    if status_code is not None:
+        result["status_code"] = status_code
+    return result
+
+
+def _retry_after_seconds(response: requests.Response) -> int:
+    try:
+        return max(1, min(int(response.headers.get("Retry-After", "2")), 60))
+    except ValueError:
+        return 2
+
+
 def safe_request(method: str, endpoint: str, **kwargs) -> Any:
-    """Universal request handler with retry logic."""
+    """Perform one Freshdesk request with bounded retry for rate limits and I/O."""
     retries = 3
     for attempt in range(retries):
         try:
-            url = f"{BASE_URL}/{endpoint}"
-            r = requests.request(
+            response = requests.request(
                 method,
-                url,
+                f"{BASE_URL}/{endpoint}",
                 auth=(FRESHDESK_API_KEY, "X"),
                 timeout=20,
-                **kwargs
+                **kwargs,
             )
-            if r.status_code == 429:
-                time.sleep(2)
+            if response.status_code == 429 and attempt < retries - 1:
+                time.sleep(_retry_after_seconds(response))
                 continue
-            r.raise_for_status()
-            return r.json()
-        except requests.exceptions.RequestException as e:
-            logger.warning(f"Attempt {attempt+1}/{retries} failed: {e}")
-            time.sleep(2)
-    return {"error": f"Max retries reached for {endpoint}"}
+            response.raise_for_status()
+            if response.status_code == 204:
+                return {}
+            try:
+                return response.json()
+            except ValueError:
+                return {}
+        except requests.exceptions.HTTPError as error:
+            status_code = error.response.status_code if error.response is not None else None
+            logger.warning("Freshdesk request failed with HTTP %s", status_code)
+            return _error_response("Freshdesk request failed", status_code)
+        except requests.exceptions.RequestException as error:
+            logger.warning("Attempt %s/%s failed: %s", attempt + 1, retries, error)
+            if attempt < retries - 1:
+                time.sleep(2)
+    return _error_response(f"Max retries reached for {endpoint}")
 
 
-def fd_get(endpoint: str, params: dict = None) -> Any:
-    """GET request with cache that supports dict params (fix for unhashable dict)."""
-    frozen_params = frozenset(params.items()) if params else None
-    return safe_request("GET", endpoint, params=dict(frozen_params) if frozen_params else None)
+async def fd_get(endpoint: str, params: dict[str, Any] | None = None) -> Any:
+    """Run a blocking Freshdesk GET without blocking the MCP event loop."""
+    return await asyncio.to_thread(safe_request, "GET", endpoint, params=params)
 
 
-def fd_post(endpoint: str, data: dict) -> Any:
-    """POST request."""
-    return safe_request("POST", endpoint, json=data)
+async def fd_post(endpoint: str, data: dict[str, Any]) -> Any:
+    """Run a blocking Freshdesk POST without blocking the MCP event loop."""
+    return await asyncio.to_thread(safe_request, "POST", endpoint, json=data)
 
 
-def fd_put(endpoint: str, data: dict) -> Any:
-    """PUT request."""
-    return safe_request("PUT", endpoint, json=data)
+async def fd_put(endpoint: str, data: dict[str, Any]) -> Any:
+    """Run a blocking Freshdesk PUT without blocking the MCP event loop."""
+    return await asyncio.to_thread(safe_request, "PUT", endpoint, json=data)
 
-# -------------------------------------------------------
-# Initialize MCP Server
-# -------------------------------------------------------
+
+async def list_tickets_for_search() -> list[dict[str, Any]] | dict[str, Any]:
+    """Page through tickets when the Freshdesk search API is unavailable."""
+    tickets: list[dict[str, Any]] = []
+    for page in range(1, FRESHDESK_SEARCH_MAX_PAGES + 1):
+        batch = await fd_get(
+            "tickets", params={"page": page, "per_page": FRESHDESK_TICKETS_PER_PAGE}
+        )
+        if isinstance(batch, dict) and "error" in batch:
+            return batch
+        if not isinstance(batch, list):
+            return _error_response("Freshdesk returned an unexpected ticket list response")
+        tickets.extend(batch)
+        if len(batch) < FRESHDESK_TICKETS_PER_PAGE:
+            break
+    return tickets
+
+
 server = FastMCP(
     name="Freshdesk MCP Connector",
-    instructions="Access, search, and manage Freshdesk tickets via MCP tools."
+    instructions="Access, search, and manage Freshdesk tickets via MCP tools.",
 )
 
-# -------------------------------------------------------
-# Tool: Overview
-# -------------------------------------------------------
-@server.tool(description="Get account overview including agents and groups")
-async def overview() -> Dict[str, Any]:
-    """Get basic Freshdesk account info."""
-    company = {"domain": FRESHDESK_DOMAIN}
-    agents = fd_get("agents")
-    groups = fd_get("groups")
-    return {"company": company, "agents": agents, "groups": groups}
 
-# -------------------------------------------------------
-# Tool: Search (universal for all plans)
-# -------------------------------------------------------
+@server.tool(description="Get account overview including agents and groups")
+async def overview() -> dict[str, Any]:
+    """Get basic Freshdesk account info."""
+    agents, groups = await asyncio.gather(fd_get("agents"), fd_get("groups"))
+    return {"company": {"domain": FRESHDESK_DOMAIN}, "agents": agents, "groups": groups}
+
+
 @server.tool(description="Search tickets by keyword (works in all plans)")
-async def search(query: str) -> Dict[str, Any]:
-    """Search Freshdesk tickets by keyword in subject or description."""
-    if not query.strip():
+async def search(query: str) -> dict[str, Any]:
+    """Search ticket subjects and descriptions, with a paginated free-plan fallback."""
+    query = query.strip()
+    if not query:
         return {"results": []}
 
-    try:
-        # 1️⃣ Try the search API first (only works on paid plans)
-        data = fd_get("search/tickets", params={"query": f'"{query}"'})
+    data = await fd_get("search/tickets", params={"query": f'"{query}"'})
+    if isinstance(data, dict) and data.get("status_code") in {403, 404}:
+        logger.warning("Search endpoint unavailable, falling back to paginated tickets")
+        tickets = await list_tickets_for_search()
+    elif isinstance(data, dict) and "error" in data:
+        return data
+    else:
+        tickets = data.get("results", data) if isinstance(data, dict) else data
 
-        # 2️⃣ Fallback to /tickets if search is restricted
-        tickets = []
-        if isinstance(data, dict) and "error" in data:
-            logger.warning("Search endpoint unavailable, falling back to /tickets")
-            tickets = fd_get("tickets")
-        else:
-            tickets = data.get("results", data)
+    if isinstance(tickets, dict) and "error" in tickets:
+        return tickets
+    if not isinstance(tickets, list):
+        return _error_response("Freshdesk returned an unexpected search response")
 
-        if not tickets:
-            return {"results": []}
+    results = []
+    lowered_query = query.lower()
+    for ticket in tickets:
+        if not isinstance(ticket, dict):
+            continue
+        subject = (ticket.get("subject") or "").lower()
+        description = (ticket.get("description_text") or ticket.get("description") or "").lower()
+        if lowered_query in subject or lowered_query in description:
+            results.append(
+                {
+                    "id": ticket.get("id"),
+                    "subject": ticket.get("subject", "No Subject"),
+                    "status": ticket.get("status"),
+                    "priority": ticket.get("priority"),
+                    "url": f"https://{FRESHDESK_DOMAIN}/a/tickets/{ticket.get('id')}",
+                }
+            )
+    return {"results": results}
 
-        results = []
-        for t in tickets:
-            subject = (t.get("subject") or "").lower()
-            desc = (t.get("description_text") or t.get("description") or "").lower()
-            if query.lower() in subject or query.lower() in desc:
-                results.append({
-                    "id": t.get("id"),
-                    "subject": t.get("subject", "No Subject"),
-                    "status": t.get("status"),
-                    "priority": t.get("priority"),
-                    "url": f"https://{FRESHDESK_DOMAIN}/a/tickets/{t.get('id')}"
-                })
 
-        return {"results": results}
-
-    except Exception as e:
-        logger.error(f"Search failed: {e}")
-        return {"error": str(e)}
-
-# -------------------------------------------------------
-# Tool: Fetch Ticket
-# -------------------------------------------------------
 @server.tool(description="Fetch detailed info about a specific ticket")
-async def fetch(ticket_id: int) -> Dict[str, Any]:
-    ticket = fd_get(f"tickets/{ticket_id}")
+async def fetch(ticket_id: int) -> dict[str, Any]:
+    """Fetch a ticket and its conversations."""
+    ticket = await fd_get(f"tickets/{ticket_id}")
+    if not isinstance(ticket, dict):
+        return _error_response("Freshdesk returned an unexpected ticket response")
     if "error" in ticket:
         return ticket
 
-    conversations = fd_get(f"tickets/{ticket_id}/conversations")
-    if isinstance(conversations, dict) and "error" in conversations:
+    conversations = await fd_get(f"tickets/{ticket_id}/conversations")
+    if not isinstance(conversations, list):
         conversations = []
-
     return {
         "id": ticket.get("id"),
         "subject": ticket.get("subject"),
@@ -164,70 +219,54 @@ async def fetch(ticket_id: int) -> Dict[str, Any]:
         "created_at": ticket.get("created_at"),
         "updated_at": ticket.get("updated_at"),
         "conversations": conversations,
-        "url": f"https://{FRESHDESK_DOMAIN}/a/tickets/{ticket_id}"
+        "url": f"https://{FRESHDESK_DOMAIN}/a/tickets/{ticket_id}",
     }
 
-# -------------------------------------------------------
-# Tool: Create Ticket
-# -------------------------------------------------------
+
 @server.tool(description="Create a new Freshdesk ticket")
-async def create_ticket(email: str, subject: str, description: str, priority: int = 1, status: int = 2):
-    """Create new ticket."""
-    data = {
-        "email": email,
-        "subject": subject,
-        "description": description,
-        "priority": priority,
-        "status": status
-    }
-    return fd_post("tickets", data)
+async def create_ticket(
+    email: str, subject: str, description: str, priority: int = 1, status: int = 2
+) -> Any:
+    return await fd_post(
+        "tickets",
+        {"email": email, "subject": subject, "description": description, "priority": priority, "status": status},
+    )
 
-# -------------------------------------------------------
-# Tool: Update Ticket
-# -------------------------------------------------------
+
 @server.tool(description="Update ticket status, priority, or description")
-async def update_ticket(ticket_id: int, status: int = None, priority: int = None, description: str = None):
-    data = {}
+async def update_ticket(
+    ticket_id: int,
+    status: int | None = None,
+    priority: int | None = None,
+    description: str | None = None,
+) -> Any:
+    data: dict[str, Any] = {}
     if status is not None:
         data["status"] = status
     if priority is not None:
         data["priority"] = priority
-    if description:
+    if description is not None:
         data["description"] = description
-    return fd_put(f"tickets/{ticket_id}", data)
+    if not data:
+        return _error_response("Provide at least one ticket field to update")
+    return await fd_put(f"tickets/{ticket_id}", data)
 
-# -------------------------------------------------------
-# Tool: Reply
-# -------------------------------------------------------
+
 @server.tool(description="Reply or add a private note to a ticket")
-async def reply(ticket_id: int, body: str, private: bool = False):
-    """Reply to a ticket."""
-    data = {"body": body, "private": private}
-    return fd_post(f"tickets/{ticket_id}/reply", data)
+async def reply(ticket_id: int, body: str, private: bool = False) -> Any:
+    return await fd_post(f"tickets/{ticket_id}/reply", {"body": body, "private": private})
 
-# -------------------------------------------------------
-# Tool: Close Ticket
-# -------------------------------------------------------
+
 @server.tool(description="Close a ticket (set status = 5)")
-async def close_ticket(ticket_id: int):
-    """Close ticket."""
-    return fd_put(f"tickets/{ticket_id}", {"status": 5})
+async def close_ticket(ticket_id: int) -> Any:
+    return await fd_put(f"tickets/{ticket_id}", {"status": 5})
 
-# -------------------------------------------------------
-# Tool: Health Check
-# -------------------------------------------------------
+
 @server.tool(description="Ping the connector to verify it's running")
-async def ping() -> Dict[str, str]:
-    """Simple health check."""
+async def ping() -> dict[str, str]:
     return {"status": "ok", "domain": FRESHDESK_DOMAIN}
 
-# -------------------------------------------------------
-# Run Server
-# -------------------------------------------------------
-if __name__ == "__main__":
-    print("🚀 Starting Freshdesk MCP Connector on http://localhost:8001")
-    print("🌐 MCP Discovery: http://localhost:8001/.well-known/mcp")
-    print("🟢 SSE Handshake: /sse/")
-    print("=" * 60)
-    server.run(transport="sse", host="0.0.0.0", port=8001)
 
+if __name__ == "__main__":
+    print("Starting Freshdesk MCP Connector on http://localhost:8001")
+    server.run(transport="sse", host="0.0.0.0", port=8001)

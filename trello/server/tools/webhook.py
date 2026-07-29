@@ -88,7 +88,7 @@ async def list_webhooks(ctx: Context, token: str) -> List[TrelloWebhook]:
         List[TrelloWebhook]: A list of webhook objects.
     """
     try:
-        logger.info(f"Listing webhooks for token")
+        logger.info("Listing webhooks for token")
 
         result = await service.list_webhooks(token)
         logger.info(f"Successfully retrieved {len(result)} webhooks")

@@ -227,7 +227,7 @@ async def delete_board(ctx: Context, board_id: str | None = None) -> dict:
         await validator.validate_board_exists(board_id)
         await validator.validate_board_admin_permission(board_id)
 
-        result = await service.delete_board(board_id)
+        await service.delete_board(board_id)
         logger.info(f"Successfully deleted board: {board_id}")
         return {"success": True, "message": f"Board {board_id} has been permanently deleted"}
     except TrelloMCPError as e:

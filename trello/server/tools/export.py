@@ -9,7 +9,7 @@ from server.trello import client
 from server.services.export import ExportService
 from server.validators.validation_service import ValidationService
 
-nservice = ExportService(client)
+service = ExportService(client)
 validator = ValidationService(client)
 
 
@@ -29,7 +29,6 @@ async def export_board(ctx: Context, board_id: str) -> str:
     Returns:
         JSON string containing complete board data
     """
-    client = client
     # Using global validator
     # Using global service
 
@@ -37,7 +36,7 @@ async def export_board(ctx: Context, board_id: str) -> str:
     await validator.validate_board_exists(board_id)
 
     # Export board
-    board_data = service.export_board(board_id)
+    board_data = await service.export_board(board_id)
 
     cards_count = len(board_data.get("cards", []))
     lists_count = len(board_data.get("lists", []))
@@ -57,11 +56,10 @@ async def list_organization_exports(ctx: Context, organization_id: str) -> str:
     Returns:
         JSON string containing list of exports
     """
-    client = client
     # Using global service
 
     # List exports
-    exports = service.list_organization_exports(organization_id)
+    exports = await service.list_organization_exports(organization_id)
 
     return f"Found {len(exports)} export(s) for organization: {json.dumps(exports)}"
 
@@ -85,11 +83,12 @@ async def create_organization_export(
     Returns:
         JSON string containing export status and information
     """
-    client = client
     # Using global service
 
     # Create export
-    export_data = service.create_organization_export(organization_id, include_attachments)
+    export_data = await service.create_organization_export(
+        organization_id, include_attachments
+    )
 
     return f"Created export for organization {organization_id}. Export ID: {export_data.get('id')}. Status: {export_data.get('status')}. Data: {json.dumps(export_data)}"
 
@@ -115,22 +114,14 @@ async def create_board_from_template(
     Returns:
         JSON string containing the created board information
     """
-    client = client
     # Using global validator
 
     # Validate template board exists
     await validator.validate_board_exists(template_board_id)
 
     # Create board from template
-    params = {
-        "name": name,
-        "idBoardSource": template_board_id,
-        "keepFromSource": "cards"  # This actually means DON'T keep cards in Trello API
-    }
-
-    if organization_id:
-        params["idOrganization"] = organization_id
-
-    response = client.post("/boards", params=params)
+    response = await service.create_board_from_template(
+        template_board_id, name, organization_id
+    )
 
     return f"Created board '{response['name']}' (ID: {response['id']}) from template {template_board_id}"

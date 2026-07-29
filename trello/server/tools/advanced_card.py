@@ -24,7 +24,6 @@ async def set_card_due_date(
     Returns:
         Confirmation message
     """
-    client = client
     # Using global validator
 
     # Validate card exists
@@ -32,7 +31,7 @@ async def set_card_due_date(
 
     # Set due date
     params = {"due": due_date if due_date != "null" else None}
-    response = client.put(f"/cards/{card_id}", params=params)
+    await client.PUT(f"/cards/{card_id}", data=params)
 
     return f"Set due date for card {card_id} to {due_date}"
 
@@ -53,7 +52,6 @@ async def set_card_due_complete(
     Returns:
         Confirmation message
     """
-    client = client
     # Using global validator
 
     # Validate card exists
@@ -61,7 +59,7 @@ async def set_card_due_complete(
 
     # Set due complete
     params = {"dueComplete": complete}
-    response = client.put(f"/cards/{card_id}", params=params)
+    await client.PUT(f"/cards/{card_id}", data=params)
 
     status = "complete" if complete else "incomplete"
     return f"Marked card {card_id} due date as {status}"
@@ -78,7 +76,6 @@ async def subscribe_to_card(ctx: Context, card_id: str) -> str:
     Returns:
         Confirmation message
     """
-    client = client
     # Using global validator
 
     # Validate card exists
@@ -86,7 +83,7 @@ async def subscribe_to_card(ctx: Context, card_id: str) -> str:
 
     # Subscribe
     params = {"subscribed": "true"}
-    response = client.put(f"/cards/{card_id}", params=params)
+    await client.PUT(f"/cards/{card_id}", data=params)
 
     return f"Subscribed to card {card_id}"
 
@@ -102,7 +99,6 @@ async def unsubscribe_from_card(ctx: Context, card_id: str) -> str:
     Returns:
         Confirmation message
     """
-    client = client
     # Using global validator
 
     # Validate card exists
@@ -110,7 +106,7 @@ async def unsubscribe_from_card(ctx: Context, card_id: str) -> str:
 
     # Unsubscribe
     params = {"subscribed": "false"}
-    response = client.put(f"/cards/{card_id}", params=params)
+    await client.PUT(f"/cards/{card_id}", data=params)
 
     return f"Unsubscribed from card {card_id}"
 
@@ -131,7 +127,6 @@ async def vote_on_card(
     Returns:
         Confirmation message
     """
-    client = client
     # Using global validator
 
     # Validate card exists
@@ -139,7 +134,7 @@ async def vote_on_card(
 
     # Add vote
     params = {"value": member_id}
-    response = client.post(f"/cards/{card_id}/idMembersVoted", params=params)
+    await client.POST(f"/cards/{card_id}/idMembersVoted", data=params)
 
     return f"Added vote from member {member_id} to card {card_id}"
 
@@ -160,14 +155,13 @@ async def remove_vote_from_card(
     Returns:
         Confirmation message
     """
-    client = client
     # Using global validator
 
     # Validate card exists
     await validator.validate_card_exists(card_id)
 
     # Remove vote
-    response = client.delete(f"/cards/{card_id}/idMembersVoted/{member_id}")
+    await client.DELETE(f"/cards/{card_id}/idMembersVoted/{member_id}")
 
     return f"Removed vote from member {member_id} on card {card_id}"
 
@@ -188,7 +182,6 @@ async def set_card_start_date(
     Returns:
         Confirmation message
     """
-    client = client
     # Using global validator
 
     # Validate card exists
@@ -196,6 +189,6 @@ async def set_card_start_date(
 
     # Set start date
     params = {"start": start_date if start_date != "null" else None}
-    response = client.put(f"/cards/{card_id}", params=params)
+    await client.PUT(f"/cards/{card_id}", data=params)
 
     return f"Set start date for card {card_id} to {start_date}"

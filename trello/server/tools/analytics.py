@@ -31,7 +31,6 @@ async def get_board_statistics(ctx: Context, board_id: str | None = None) -> str
     Returns:
         JSON string containing comprehensive board statistics
     """
-    client = client
     # Using global validator
     # Using global service
 
@@ -40,7 +39,7 @@ async def get_board_statistics(ctx: Context, board_id: str | None = None) -> str
     await validator.validate_board_exists(board_id)
 
     # Get statistics
-    stats = service.get_board_statistics(board_id)
+    stats = await service.get_board_statistics(board_id)
 
     return f"Board Statistics for '{stats['board_name']}':\n" \
            f"- {stats['total_lists']} lists, {stats['total_cards']} total cards\n" \
@@ -64,7 +63,6 @@ async def get_card_cycle_time(ctx: Context, board_id: str | None = None) -> str:
     Returns:
         JSON string containing cycle time statistics per list
     """
-    client = client
     # Using global validator
     # Using global service
 
@@ -73,6 +71,6 @@ async def get_card_cycle_time(ctx: Context, board_id: str | None = None) -> str:
     await validator.validate_board_exists(board_id)
 
     # Get cycle time
-    cycle_data = service.get_card_cycle_time(board_id)
+    cycle_data = await service.get_card_cycle_time(board_id)
 
     return f"Card Cycle Time Analysis:\n{json.dumps(cycle_data, indent=2)}"

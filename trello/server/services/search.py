@@ -18,7 +18,7 @@ class SearchService:
         """
         self.client = client
 
-    def search(
+    async def search(
         self,
         query: str,
         id_boards: Optional[str] = None,
@@ -50,10 +50,9 @@ class SearchService:
         if partial:
             params["partial"] = "true"
 
-        response = self.client.get("/search", params=params)
-        return response
+        return await self.client.GET("/search", params=params)
 
-    def search_members(self, query: str, limit: int = 8) -> List[Dict[str, Any]]:
+    async def search_members(self, query: str, limit: int = 8) -> List[Dict[str, Any]]:
         """
         Search for members.
 
@@ -69,5 +68,4 @@ class SearchService:
             "limit": min(limit, 20)
         }
 
-        response = self.client.get("/search/members", params=params)
-        return response
+        return await self.client.GET("/search/members", params=params)

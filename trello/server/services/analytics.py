@@ -2,10 +2,20 @@
 Service for Trello analytics and reporting.
 """
 
-from typing import Dict, Any, List
-from datetime import datetime
+from typing import Dict, Any
+from datetime import datetime, timezone
 from collections import defaultdict
 from server.utils.trello_api import TrelloClient
+
+
+def _parse_trello_timestamp(value: object) -> datetime | None:
+    """Parse a Trello timestamp without letting malformed source data break analytics."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 class AnalyticsService:
@@ -20,7 +30,7 @@ class AnalyticsService:
         """
         self.client = client
 
-    def get_board_statistics(self, board_id: str) -> Dict[str, Any]:
+    async def get_board_statistics(self, board_id: str) -> Dict[str, Any]:
         """
         Get comprehensive statistics for a board.
 
@@ -39,9 +49,16 @@ class AnalyticsService:
             "actions": "all",
             "actions_limit": "1000"
         }
-        board = self.client.get(f"/boards/{board_id}", params=params)
+        board = await self.client.GET(f"/boards/{board_id}", params=params)
 
         # Calculate statistics
+        overdue_cards = 0
+        now = datetime.now(timezone.utc)
+        for card in board.get("cards", []):
+            due = _parse_trello_timestamp(card.get("due"))
+            if due and not card.get("dueComplete") and due < now:
+                overdue_cards += 1
+
         stats = {
             "board_name": board.get("name"),
             "board_id": board_id,
@@ -52,7 +69,7 @@ class AnalyticsService:
             "open_cards": len([c for c in board.get("cards", []) if not c.get("closed")]),
             "closed_cards": len([c for c in board.get("cards", []) if c.get("closed")]),
             "cards_with_due_dates": len([c for c in board.get("cards", []) if c.get("due")]),
-            "overdue_cards": len([c for c in board.get("cards", []) if c.get("due") and not c.get("dueComplete") and datetime.fromisoformat(c.get("due").replace("Z", "+00:00")) < datetime.now(datetime.now().astimezone().tzinfo)]),
+            "overdue_cards": overdue_cards,
             "completed_cards": len([c for c in board.get("cards", []) if c.get("dueComplete")]),
         }
 
@@ -76,7 +93,11 @@ class AnalyticsService:
             for label_id in card.get("idLabels", []):
                 label_usage[label_id] += 1
 
-        label_names = {lbl["id"]: lbl["name"] or lbl["color"] for lbl in board.get("labels", [])}
+        label_names = {
+            label["id"]: label.get("name") or label.get("color") or label["id"]
+            for label in board.get("labels", [])
+            if label.get("id")
+        }
         stats["label_usage"] = {
             label_names.get(lid, lid): count
             for lid, count in label_usage.items()
@@ -97,7 +118,7 @@ class AnalyticsService:
 
         return stats
 
-    def get_card_cycle_time(self, board_id: str) -> Dict[str, Any]:
+    async def get_card_cycle_time(self, board_id: str) -> Dict[str, Any]:
         """
         Calculate average time cards spend in each list.
 
@@ -112,10 +133,10 @@ class AnalyticsService:
             "filter": "updateCard:idList",
             "limit": "1000"
         }
-        actions = self.client.get(f"/boards/{board_id}/actions", params=params)
+        actions = await self.client.GET(f"/boards/{board_id}/actions", params=params)
 
         # Get lists
-        lists = self.client.get(f"/boards/{board_id}/lists")
+        lists = await self.client.GET(f"/boards/{board_id}/lists")
         list_names = {lst["id"]: lst["name"] for lst in lists}
 
         # Calculate time in each list
@@ -127,7 +148,6 @@ class AnalyticsService:
         for action in reversed(actions):
             card_id = action.get("data", {}).get("card", {}).get("id")
             list_after = action.get("data", {}).get("listAfter", {}).get("id")
-            list_before = action.get("data", {}).get("listBefore", {}).get("id")
             action_date = action.get("date")
 
             if card_id and list_after:
@@ -135,10 +155,12 @@ class AnalyticsService:
                 if card_id in card_current_list and card_id in card_list_enter_time:
                     # Calculate time in previous list
                     prev_list = card_current_list[card_id]
-                    enter_time = datetime.fromisoformat(card_list_enter_time[card_id].replace("Z", "+00:00"))
-                    exit_time = datetime.fromisoformat(action_date.replace("Z", "+00:00"))
-                    duration = (exit_time - enter_time).total_seconds() / 3600  # hours
-                    card_times[prev_list]["durations"].append(duration)
+                    enter_time = _parse_trello_timestamp(card_list_enter_time[card_id])
+                    exit_time = _parse_trello_timestamp(action_date)
+                    if enter_time and exit_time:
+                        duration = (exit_time - enter_time).total_seconds() / 3600
+                        if duration >= 0:
+                            card_times[prev_list]["durations"].append(duration)
 
                 card_current_list[card_id] = list_after
                 card_list_enter_time[card_id] = action_date

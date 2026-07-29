@@ -205,7 +205,7 @@ async def delete_workspace(ctx: Context, workspace_id: str | None = None) -> dic
         # Note: Trello API requires admin permissions to delete a workspace
         # The API will return 403 if user doesn't have permission
 
-        result = await service.delete_workspace(workspace_id)
+        await service.delete_workspace(workspace_id)
         logger.info(f"Successfully deleted workspace: {workspace_id}")
         return {"success": True, "message": f"Workspace {workspace_id} has been permanently deleted"}
     except TrelloMCPError as e:

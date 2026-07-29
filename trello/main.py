@@ -4,8 +4,6 @@ import os
 import uvicorn
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
-from starlette.applications import Starlette
-from starlette.routing import Mount
 
 from server.tools.tools import register_tools
 

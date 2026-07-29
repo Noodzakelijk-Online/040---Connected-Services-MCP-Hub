@@ -21,7 +21,7 @@ class CustomFieldService:
         """
         self.client = client
 
-    def get_board_custom_fields(self, board_id: str) -> List[TrelloCustomField]:
+    async def get_board_custom_fields(self, board_id: str) -> List[TrelloCustomField]:
         """
         Get all custom fields on a board.
 
@@ -31,10 +31,10 @@ class CustomFieldService:
         Returns:
             List of TrelloCustomField objects
         """
-        response = self.client.get(f"/boards/{board_id}/customFields")
+        response = await self.client.GET(f"/boards/{board_id}/customFields")
         return [TrelloCustomField(**field) for field in response]
 
-    def create_custom_field(self, payload: CreateCustomFieldPayload) -> TrelloCustomField:
+    async def create_custom_field(self, payload: CreateCustomFieldPayload) -> TrelloCustomField:
         """
         Create a new custom field on a board.
 
@@ -45,10 +45,10 @@ class CustomFieldService:
             Created TrelloCustomField object
         """
         params = payload.to_api_params()
-        response = self.client.post("/customFields", json=params)
+        response = await self.client.POST("/customFields", data=params)
         return TrelloCustomField(**response)
 
-    def update_custom_field(
+    async def update_custom_field(
         self,
         field_id: str,
         name: str = None,
@@ -71,19 +71,19 @@ class CustomFieldService:
         if pos is not None:
             params["pos"] = pos
 
-        response = self.client.put(f"/customFields/{field_id}", params=params)
+        response = await self.client.PUT(f"/customFields/{field_id}", data=params)
         return TrelloCustomField(**response)
 
-    def delete_custom_field(self, field_id: str) -> None:
+    async def delete_custom_field(self, field_id: str) -> None:
         """
         Delete a custom field.
 
         Args:
             field_id: The ID of the custom field
         """
-        self.client.delete(f"/customFields/{field_id}")
+        await self.client.DELETE(f"/customFields/{field_id}")
 
-    def get_card_custom_field_items(self, card_id: str) -> List[TrelloCustomFieldItem]:
+    async def get_card_custom_field_items(self, card_id: str) -> List[TrelloCustomFieldItem]:
         """
         Get all custom field values on a card.
 
@@ -93,10 +93,10 @@ class CustomFieldService:
         Returns:
             List of TrelloCustomFieldItem objects
         """
-        response = self.client.get(f"/cards/{card_id}/customFieldItems")
+        response = await self.client.GET(f"/cards/{card_id}/customFieldItems")
         return [TrelloCustomFieldItem(**item) for item in response]
 
-    def set_custom_field_value(
+    async def set_custom_field_value(
         self,
         card_id: str,
         field_id: str,
@@ -114,13 +114,13 @@ class CustomFieldService:
             Updated TrelloCustomFieldItem object
         """
         params = payload.to_api_params()
-        response = self.client.put(
+        response = await self.client.PUT(
             f"/cards/{card_id}/customField/{field_id}/item",
-            json=params
+            data=params,
         )
         return TrelloCustomFieldItem(**response)
 
-    def add_custom_field_option(
+    async def add_custom_field_option(
         self,
         field_id: str,
         text: str,
@@ -144,10 +144,10 @@ class CustomFieldService:
             "color": color,
             "pos": pos
         }
-        response = self.client.post(f"/customFields/{field_id}/options", json=params)
+        response = await self.client.POST(f"/customFields/{field_id}/options", data=params)
         return response
 
-    def update_custom_field_option(
+    async def update_custom_field_option(
         self,
         option_id: str,
         text: str = None,
@@ -174,14 +174,14 @@ class CustomFieldService:
         if pos is not None:
             params["pos"] = pos
 
-        response = self.client.put(f"/customFieldOptions/{option_id}", params=params)
+        response = await self.client.PUT(f"/customFieldOptions/{option_id}", data=params)
         return response
 
-    def delete_custom_field_option(self, option_id: str) -> None:
+    async def delete_custom_field_option(self, option_id: str) -> None:
         """
         Delete a custom field option.
 
         Args:
             option_id: The ID of the option
         """
-        self.client.delete(f"/customFieldOptions/{option_id}")
+        await self.client.DELETE(f"/customFieldOptions/{option_id}")

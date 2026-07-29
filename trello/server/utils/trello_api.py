@@ -136,13 +136,14 @@ class TrelloClient:
                 if attempt == self.max_retries - 1:
                     logger.error(f"Max retries exceeded for {method} {endpoint}")
                     raise TrelloMCPError(
-                        f"Network error after {self.max_retries} attempts: {str(e)}"
+                        f"Network error after {self.max_retries} attempts: "
+                        f"{_redact_secrets(str(e))}"
                     )
 
                 delay = base_delay * (2**attempt)
                 logger.warning(
                     f"Network error on attempt {attempt + 1}/{self.max_retries}. "
-                    f"Retrying in {delay} seconds... Error: {str(e)}"
+                    f"Retrying in {delay} seconds... Error: {_redact_secrets(str(e))}"
                 )
                 await asyncio.sleep(delay)
 
@@ -161,7 +162,7 @@ class TrelloClient:
         except httpx.HTTPStatusError as e:
             self._handle_http_error(e, endpoint, "GET")
         except httpx.RequestError as e:
-            logger.error(f"Request error: {e}")
+            logger.error("Request error: %s", _redact_secrets(str(e)))
             raise
 
     async def _post(
@@ -179,7 +180,7 @@ class TrelloClient:
         except httpx.HTTPStatusError as e:
             self._handle_http_error(e, endpoint, "POST")
         except httpx.RequestError as e:
-            logger.error(f"Request error: {e}")
+            logger.error("Request error: %s", _redact_secrets(str(e)))
             raise
 
     async def _put(
@@ -197,7 +198,7 @@ class TrelloClient:
         except httpx.HTTPStatusError as e:
             self._handle_http_error(e, endpoint, "PUT")
         except httpx.RequestError as e:
-            logger.error(f"Request error: {e}")
+            logger.error("Request error: %s", _redact_secrets(str(e)))
             raise
 
     async def _delete(self, endpoint: str, params: Optional[dict] = None):
@@ -213,7 +214,7 @@ class TrelloClient:
         except httpx.HTTPStatusError as e:
             self._handle_http_error(e, endpoint, "DELETE")
         except httpx.RequestError as e:
-            logger.error(f"Request error: {e}")
+            logger.error("Request error: %s", _redact_secrets(str(e)))
             raise
 
     # Public methods with retry logic

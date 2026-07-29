@@ -29,7 +29,6 @@ async def batch_get_resources(
     Returns:
         JSON string containing array of responses
     """
-    client = client
     # Using global service
 
     # Split URLs

@@ -41,11 +41,10 @@ async def search_trello(
     Returns:
         JSON string containing search results grouped by type
     """
-    client = client
     # Using global service
 
     # Perform search
-    results = service.search(
+    results = await service.search(
         query=query,
         id_boards=board_ids,
         id_organizations=organization_ids,
@@ -78,10 +77,9 @@ async def search_members(
     Returns:
         JSON string containing list of matching members
     """
-    client = client
     # Using global service
 
     # Search members
-    members = service.search_members(query, limit)
+    members = await service.search_members(query, limit)
 
     return f"Found {len(members)} member(s) matching '{query}': {json.dumps(members)}"

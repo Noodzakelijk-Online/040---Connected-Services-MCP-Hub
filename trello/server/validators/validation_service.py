@@ -7,12 +7,9 @@ permissions, and business rules before executing operations.
 
 import logging
 import re
-from typing import Optional
-
 import httpx
 
 from server.exceptions import (
-    BadRequestError,
     ForbiddenError,
     ResourceNotFoundError,
     UnauthorizedError,
