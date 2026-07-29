@@ -206,7 +206,7 @@ def test_tools_registration():
                 self.tools.append(tool)
 
         mcp = MockMCP()
-        register_tools(mcp)
+        register_tools(mcp, read_only=False)
 
         # Count tools
         tool_count = len(mcp.tools)

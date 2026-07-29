@@ -373,7 +373,7 @@ def test_tools_registration():
             self.tools.append(tool)
 
     mcp = MockMCP()
-    register_tools(mcp)
+    register_tools(mcp, read_only=False)
 
     # Should have all tools registered
     # Original: 6 board + 5 list + 5 card + 8 checklist + 6 workspace = 30

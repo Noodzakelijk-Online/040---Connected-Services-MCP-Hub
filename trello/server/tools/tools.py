@@ -1,5 +1,7 @@
 """Register the complete Trello MCP tool surface with safety annotations."""
 
+import os
+
 from mcp.types import ToolAnnotations
 
 from server.tools import (
@@ -20,6 +22,7 @@ from server.tools import (
     search,
     webhook,
     workspace,
+    compat,
 )
 
 
@@ -43,20 +46,34 @@ def _register(mcp, tools, *, read_only: bool) -> None:
             mcp.add_tool(tool)
 
 
-def register_tools(mcp):
-    """Register all tools and communicate their side-effect risk to MCP hosts."""
+def _read_only_from_environment() -> bool:
+    return os.getenv("TRELLO_READ_ONLY", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def register_tools(mcp, *, read_only: bool | None = None):
+    """Register tools, optionally omitting all mutation-capable operations.
+
+    ``TRELLO_READ_ONLY=true`` creates a server-side boundary: write tools are
+    not registered or advertised, rather than merely being labelled risky.
+    """
+    if read_only is None:
+        read_only = _read_only_from_environment()
+
     _register(
         mcp,
         (
             board.get_board,
             board.get_boards,
             board.get_board_labels,
-            board.get_board_members,
             list.get_list,
             list.get_lists,
             card.get_card,
             card.get_cards,
-            card.get_card_comments,
             card.search_cards,
             checklist.get_checklist,
             checklist.get_card_checklists,
@@ -84,9 +101,15 @@ def register_tools(mcp):
             analytics.get_board_statistics,
             analytics.get_card_cycle_time,
             context.get_active_context,
+            compat.overview,
+            compat.search,
+            compat.fetch,
         ),
         read_only=True,
     )
+    if read_only:
+        return
+
     _register(
         mcp,
         (
@@ -154,6 +177,7 @@ def register_tools(mcp):
             context.set_active_board,
             context.set_active_workspace,
             context.clear_active_context,
+            compat.move_card,
         ),
         read_only=False,
     )
