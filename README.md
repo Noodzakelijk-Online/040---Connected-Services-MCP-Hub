@@ -1,8 +1,10 @@
-# Freshdesk + Trello MCP Connectors for ChatGPT
+# Connected Services MCP Hub
 
-This repository contains two independent FastMCP servers, grouped by their
-external service. It preserves the Git history from both the original
-Freshdesk (`040`) and Trello (`040.5`) repositories.
+This repository is a private MCP hub for connecting ChatGPT to business
+systems and operational data. It currently contains independent FastMCP
+servers for Freshdesk and Trello, grouped by their external service. The hub
+preserves the Git history from both the original Freshdesk (`040`) and Trello
+(`040.5`) repositories.
 
 ## Services
 
