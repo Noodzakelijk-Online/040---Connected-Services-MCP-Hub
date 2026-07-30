@@ -69,6 +69,7 @@ def register_tools(mcp, *, read_only: bool | None = None):
         (
             board.get_board,
             board.get_boards,
+            board.get_open_board_count,
             board.get_board_labels,
             list.get_list,
             list.get_lists,

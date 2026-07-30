@@ -45,19 +45,71 @@ async def get_board(ctx: Context, board_id: str | None = None) -> TrelloBoard:
         raise
 
 
-async def get_boards(ctx: Context) -> List[TrelloBoard]:
-    """Retrieves all boards for the authenticated user.
+async def get_boards(
+    ctx: Context, limit: int = 10, offset: int = 0
+) -> List[TrelloBoard]:
+    """Returns a compact, paginated list of open boards.
+
+    The former implementation returned every field of every board in one
+    response. That is a poor fit for connector clients, which can reject an
+    otherwise successful response when it is too large. This compact
+    discovery response keeps the initial request usable and includes enough
+    information to select a board for the detail tools. It deliberately keeps
+    the original list-shaped result, so existing ChatGPT connector
+    registrations continue to understand the response.
+
+    Args:
+        limit: Maximum number of boards to return (1-25).
+        offset: Zero-based position in the ordered set of open boards.
 
     Returns:
-        List[TrelloBoard]: A list of board objects.
+        A compact page of open boards.
     """
     try:
-        logger.info("Getting all boards")
-        result = await service.get_boards()
-        logger.info(f"Successfully retrieved {len(result)} boards")
+        safe_limit = min(max(limit, 1), 25)
+        safe_offset = max(offset, 0)
+        logger.info("Getting a compact page of open boards")
+        boards = await service.get_boards()
+        open_boards = [board for board in boards if not board.closed]
+        page = open_boards[safe_offset : safe_offset + safe_limit]
+        result = [
+            TrelloBoard(
+                id=board.id,
+                name=board.name,
+                url=board.url,
+            )
+            for board in page
+        ]
+        logger.info(
+            "Successfully retrieved %s of %s open boards",
+            len(page),
+            len(open_boards),
+        )
         return result
     except Exception as e:
         error_msg = f"Failed to get boards: {str(e)}"
+        logger.error(error_msg)
+        await ctx.error(error_msg)
+        raise
+
+
+async def get_open_board_count(ctx: Context) -> dict[str, int]:
+    """Returns a compact count of the authenticated user's open Trello boards.
+
+    This read-only overview avoids transferring board names and other board
+    details when a client only needs to confirm that Trello data is available.
+
+    Returns:
+        A dictionary containing the number of open boards.
+    """
+    try:
+        logger.info("Counting open boards")
+        boards = await service.get_boards()
+        open_board_count = sum(not board.closed for board in boards)
+        logger.info("Successfully counted open boards")
+        return {"open_board_count": open_board_count}
+    except Exception as e:
+        error_msg = f"Failed to count open boards: {str(e)}"
         logger.error(error_msg)
         await ctx.error(error_msg)
         raise

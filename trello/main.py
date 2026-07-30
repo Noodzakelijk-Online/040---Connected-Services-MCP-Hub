@@ -4,6 +4,7 @@ import os
 import uvicorn
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from starlette.routing import Route
 
 from server.tools.tools import register_tools
 
@@ -21,7 +22,14 @@ load_dotenv()
 
 
 # Initialize MCP server
-mcp = FastMCP("Trello MCP Server")
+# ChatGPT can make independent Streamable HTTP requests instead of preserving
+# an MCP session identifier.  Stateless mode keeps those requests compatible
+# while leaving the local stdio/Claude mode unchanged.
+mcp = FastMCP(
+    "Trello MCP Server",
+    stateless_http=True,
+    json_response=True,
+)
 
 # Register tools
 register_tools(mcp)
@@ -45,7 +53,7 @@ def start_claude_server():
 
 
 def start_sse_server():
-    """Start the MCP server in HTTP mode using uvicorn"""
+    """Start the MCP server in Streamable HTTP mode using uvicorn."""
     try:
         # Verify environment variables
         if not os.getenv("TRELLO_API_KEY") or not os.getenv("TRELLO_TOKEN"):
@@ -56,8 +64,18 @@ def start_sse_server():
         host = os.getenv("MCP_SERVER_HOST", "0.0.0.0")
         port = int(os.getenv("MCP_SERVER_PORT", "8000"))
 
-        # Create HTTP app - use streamable_http_app directly
+        # FastMCP's current Streamable HTTP endpoint is /mcp.  Earlier
+        # versions of this project documented /sse, and ChatGPT keeps the
+        # endpoint URL with a saved connector.  Serve the same Streamable
+        # protocol on both paths so a legacy registration continues to work
+        # without falling back to a misleading expired-connection prompt.
         app = mcp.streamable_http_app()
+        streamable_route = next(
+            route
+            for route in app.routes
+            if getattr(route, "path", None) == mcp.settings.streamable_http_path
+        )
+        app.router.routes.append(Route("/sse", endpoint=streamable_route.endpoint))
 
         logger.info(
             f"Starting Trello MCP Server in HTTP mode on http://{host}:{port}..."
