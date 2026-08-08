@@ -67,57 +67,24 @@ if not defined PYEXE (
 )
 echo  [1/5] Python found: %PYEXE% %PYARG%
 
-REM ---------------------------------------------------------------- credentials
-REM Kept flat on purpose: a :label inside a parenthesised block is fragile in
-REM cmd.exe, and this is the step a live setup session cannot afford to break.
-set "ENVFILE=%APP%\.env"
-
-if exist "%ENVFILE%" (
-    echo  [2/5] Existing credentials found - keeping them.
-    goto :haveenv
-)
-
-REM Credentials may be passed as arguments for unattended setup:
-REM    install.bat <api-key> <api-token>
-set "TKEY=%~1"
-set "TTOK=%~2"
-
-if not "%TKEY%"=="" if not "%TTOK%"=="" (
-    echo  [2/5] Using credentials passed on the command line.
-    goto :writeenv
-)
-
-echo  [2/5] Trello credentials needed.
-echo.
-echo        Get them at: https://trello.com/power-ups/admin
-echo.
-set /p "TKEY=        Trello API key   : "
-set /p "TTOK=        Trello API token : "
-
-:writeenv
-if "%TKEY%"=="" goto :nocreds
-if "%TTOK%"=="" goto :nocreds
->"%ENVFILE%" echo TRELLO_API_KEY=%TKEY%
->>"%ENVFILE%" echo TRELLO_TOKEN=%TTOK%
->>"%ENVFILE%" echo.
->>"%ENVFILE%" echo USE_CLAUDE_APP=true
->>"%ENVFILE%" echo TRELLO_READ_ONLY=true
->>"%ENVFILE%" echo TRELLO_CACHE_ENABLED=true
->>"%ENVFILE%" echo TRELLO_SYNC_ON_START=true
->>"%ENVFILE%" echo TRELLO_SYNC_INTERVAL_SECONDS=900
-echo.
-echo        Saved to trello\.env
-
-:haveenv
-
 REM ---------------------------------------------------------------- environment
-echo  [3/5] Creating the Python environment (this takes a minute)...
+echo  [2/5] Creating the Python environment (this takes a minute)...
 if not exist "%PY%" (
     "%PYEXE%" %PYARG% -m venv "%VENV%" || goto :failed
 )
 "%PY%" -m pip install --quiet --upgrade pip >nul 2>&1
 "%PY%" -m pip install --quiet -e "%APP%" || goto :failed
 echo        Dependencies installed.
+
+REM ---------------------------------------------------------------- Trello consent
+if exist "%APP%\.env" (
+    echo  [3/5] Existing local .env credentials found - keeping them.
+) else (
+    echo  [3/5] Connect Trello in your browser.
+    echo        Enter the public Power-Up API key once, then sign in to Trello.
+    echo        The user token is saved in Windows Credential Manager.
+    "%PY%" "%APP%\oauth_connect.py" || goto :failed
+)
 
 REM ---------------------------------------------------------------- self test
 echo  [4/5] Checking the connector starts and can reach Trello...
@@ -160,13 +127,6 @@ echo      IMPORTANT: on the first installer screen, tick
 echo         [x] Add python.exe to PATH
 echo.
 echo      Then run install.bat again.
-echo.
-pause
-exit /b 1
-
-:nocreds
-echo.
-echo  [X] Both the API key and token are required. Nothing was changed.
 echo.
 pause
 exit /b 1

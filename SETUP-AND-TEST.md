@@ -29,7 +29,7 @@ The connector keeps a local index of your whole account so ChatGPT can answer qu
 ## Install — one time, about 3 minutes
 
 1. Unzip this folder anywhere (Desktop is fine).
-2. Double-click **`install.bat`**. It will ask for your Trello API key and token, then set everything up.
+2. Double-click **`install.bat`**. It opens a local browser page where you enter the public Power-Up API key once, then sign in to Trello. The user token is saved in Windows Credential Manager.
 3. **Fully quit the ChatGPT app and reopen it** — not just close the window; right-click the taskbar icon and Quit.
 
 Then in ChatGPT: **Settings → Plugins → MCPs** — you should see **`trello`**, enabled, with a toggle.
@@ -56,8 +56,8 @@ The last two are the ones worth checking closely — they are exactly what used 
 
 - **It is read-only.** The connector can only read. It cannot create, change, archive or delete anything in Trello — the write tools are not loaded at all, so there is no way for ChatGPT to touch your boards even by accident.
 - **Archived cards are included by default**, since most of your history lives there (807 of 1,160). To turn them off, just say *"stop showing me archived cards"* — it is remembered until you change it back. They stay indexed either way, so switching is instant.
-- **Your credentials stay on your machine**, in the file `trello\.env`. They are not sent anywhere except to Trello.
-- **Please rotate your Trello API token** once you are happy this works — the current one was shared over chat during this job. Revoke and reissue at <https://trello.com/power-ups/admin>, then re-run `install.bat` and paste the new values.
+- **Your credentials stay on your machine.** The native installer stores the public app key under `%LOCALAPPDATA%\trello-mcp` and the user token in Windows Credential Manager. They are not written into this repository.
+- **To reconnect**, revoke the connector in Trello and run `trello\oauth_connect.py` from the installed virtual environment; it opens the same approval flow.
 
 ## If something looks wrong
 

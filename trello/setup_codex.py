@@ -26,6 +26,8 @@ import tomllib
 from datetime import datetime
 from pathlib import Path
 
+from server import settings
+
 SERVER_NAME = "trello"
 PACKAGE_ROOT = Path(__file__).resolve().parent
 
@@ -67,6 +69,7 @@ def build_docker_block() -> str:
     connector would re-crawl every board on each launch.
     """
     env_file = PACKAGE_ROOT / ".env"
+    credentials_available = bool(settings.api_key() and settings.api_token())
     return f"""
 [mcp_servers.{SERVER_NAME}]
 command = "docker"
@@ -174,7 +177,8 @@ def check() -> int:
                 ).returncode == 0
                 print(f"  image {DOCKER_IMAGE} built : {image}")
         print(f"  .env present         : {env_file.exists()}")
-        return 0 if (docker_ok and daemon and image and env_file.exists()) else 1
+        print(f"  credentials available : {credentials_available}")
+        return 0 if (docker_ok and daemon and image and credentials_available) else 1
 
     command = Path(raw_command)
     script = Path(str((entry.get("args") or [""])[0]))
@@ -182,7 +186,8 @@ def check() -> int:
     print(f"  interpreter exists   : {command.exists()}")
     print(f"  main.py exists       : {script.exists()}")
     print(f"  .env present         : {env_file.exists()}")
-    return 0 if ok else 1
+    print(f"  credentials available : {credentials_available}")
+    return 0 if (ok and credentials_available) else 1
 
 
 def install(remove: bool = False, docker: bool = False) -> int:
@@ -220,9 +225,8 @@ def install(remove: bool = False, docker: bool = False) -> int:
             print("              Docker Desktop must be running when you use ChatGPT.")
         print("\nNext: fully quit and reopen the ChatGPT app, then")
         print("Settings -> Plugins -> MCPs -> 'trello' should be listed and enabled.")
-        env_file = PACKAGE_ROOT / ".env"
-        if not env_file.exists():
-            print(f"\nWARNING: {env_file} is missing; add TRELLO_API_KEY and TRELLO_TOKEN.")
+        if not (settings.api_key() and settings.api_token()):
+            print("\nWARNING: Trello is not connected yet; run oauth_connect.py to approve access.")
     return 0
 
 

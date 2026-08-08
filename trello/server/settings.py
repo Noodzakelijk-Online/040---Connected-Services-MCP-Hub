@@ -9,12 +9,15 @@ setting is therefore resolved from an absolute path anchored to this file.
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 # trello/  (the directory holding .env, main.py, pyproject.toml)
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
+KEYRING_SERVICE = "Trello ChatGPT Connector"
+KEYRING_TOKEN_ACCOUNT = "trello_user_token"
 
 _TRUTHY = {"1", "true", "yes", "on"}
 
@@ -64,6 +67,36 @@ def _load_env() -> None:
 _load_env()
 
 
+def _settings_path() -> Path:
+    """Return the per-user native-app settings file, never a repository file."""
+    override = os.getenv("TRELLO_MCP_SETTINGS_FILE")
+    if override:
+        return Path(override).expanduser()
+    base = os.getenv("LOCALAPPDATA")
+    root = Path(base) if base else Path.home() / ".local" / "share"
+    return root / "trello-mcp" / "settings.json"
+
+
+def _stored_settings() -> dict[str, str]:
+    path = _settings_path()
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _credential_manager_token() -> str | None:
+    """Read the native installer token without falling back to a new secret."""
+    try:
+        import keyring
+        return keyring.get_password(KEYRING_SERVICE, KEYRING_TOKEN_ACCOUNT) or None
+    except Exception:
+        return None
+
+
 def _flag(name: str, default: bool = False) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -85,11 +118,11 @@ def _number(name: str, default: float, minimum: float | None = None) -> float:
 
 
 def api_key() -> str | None:
-    return os.getenv("TRELLO_API_KEY") or None
+    return os.getenv("TRELLO_API_KEY") or _stored_settings().get("trello_app_key") or None
 
 
 def api_token() -> str | None:
-    return os.getenv("TRELLO_TOKEN") or None
+    return os.getenv("TRELLO_TOKEN") or _credential_manager_token()
 
 
 def read_only() -> bool:

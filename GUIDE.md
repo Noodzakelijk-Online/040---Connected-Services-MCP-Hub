@@ -37,24 +37,20 @@ You want it to say **`READY - run install.bat`**.
 
 Double-click **`install.bat`**.
 
-It will ask for two things:
-
-```
-Trello API key   :
-Trello API token :
-```
-
-Get both from <https://trello.com/power-ups/admin> → your Power-Up → **API key**,
-then the **Token** link next to it.
+It opens a local browser page. Create or select a Power-Up at
+<https://trello.com/power-ups/admin>, add `http://localhost:8765` as an allowed
+origin, then enter its public API key once. The browser then sends you to
+Trello to sign in and approve read-only access; no token is pasted into the
+installer.
 
 A successful run looks like this:
 
 ```
  [1/5] Python found: py -3.13
- [2/5] Trello credentials needed.
-       Saved to trello\.env
- [3/5] Creating the Python environment (this takes a minute)...
+ [2/5] Creating the Python environment (this takes a minute)...
        Dependencies installed.
+ [3/5] Connect Trello in your browser.
+       The user token is saved in Windows Credential Manager.
  [4/5] Checking the connector starts and can reach Trello...
        Connected to Trello as: Noodzakelijk Online
        Visible to the connector: 85 boards, 29 workspaces
@@ -316,8 +312,9 @@ with `verify.bat` — if that passes, it is the ChatGPT side.
 .\trello\.venv\Scripts\python.exe .\trello\selftest.py
 ```
 
-If it reports rejected credentials, delete `trello\.env` and run `install.bat`
-again with fresh values from <https://trello.com/power-ups/admin>.
+If it reports rejected credentials, revoke the connector in Trello and run
+`trello\oauth_connect.py` from the installed virtual environment to approve
+access again.
 
 ### Answers seem to be missing recent changes
 
@@ -363,9 +360,9 @@ answer instantly instead of timing out. It refreshes in the background every 15
 minutes and only re-reads boards that actually changed — a refresh takes about
 5 seconds, a full rebuild about 90.
 
-Nothing leaves your machine except requests to Trello itself. Your API
-credentials live in `trello\.env` on your computer and are not written into any
-shared configuration file.
+Nothing leaves your machine except requests to Trello itself. The native setup
+stores the public app key under `%LOCALAPPDATA%\trello-mcp` and the user token in
+Windows Credential Manager; neither is written into shared configuration.
 
 ### It cannot change anything
 
@@ -376,7 +373,8 @@ refused.
 
 ### Settings you can change
 
-Edit `trello\.env`, then fully quit and reopen ChatGPT:
+For network/Docker deployments, edit `trello\.env`, then fully quit and reopen
+ChatGPT. Native Windows installations use the browser consent flow instead:
 
 | Setting | Default | What it does |
 | --- | --- | --- |
@@ -386,9 +384,8 @@ Edit `trello\.env`, then fully quit and reopen ChatGPT:
 | `TRELLO_REQUESTS_PER_SECOND` | `4` | Lower it if Trello blocks requests often |
 | `TRELLO_SYNC_ON_START` | `true` | Whether to refresh when ChatGPT launches the connector |
 
-### Please rotate your API token
+### Reconnect or revoke access
 
-The credentials used during this job were shared over chat. Once you are happy
-everything works, revoke and reissue them at
-<https://trello.com/power-ups/admin>, then run `install.bat` again with the new
-values. Nothing else needs changing.
+Use the Applications section of your Trello account to revoke this connector.
+Run `trello\oauth_connect.py` again to reconnect; the old token is replaced in
+Windows Credential Manager only after Trello validates the new approval.

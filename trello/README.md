@@ -16,13 +16,15 @@ aliases.
 
 ## Quick start (ChatGPT desktop app / Codex on Windows)
 
-```powershell
-cd trello
-Copy-Item .env.example .env      # then set TRELLO_API_KEY and TRELLO_TOKEN
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e .
-.\.venv\Scripts\python.exe setup_codex.py
-```
+Double-click `..\install.bat`. On the first run it opens a local browser page:
+enter the public Trello Power-Up API key once, then sign in and approve
+read-only access in Trello. The user token is stored in Windows Credential
+Manager and survives Windows restarts; it is not added to the repository or
+shared Codex configuration.
+
+The Power-Up must list `http://localhost:8765` as an allowed origin. This is
+Trello's app-registration requirement; the installer cannot create an app key
+on the user's behalf.
 
 `setup_codex.py` registers the server in `~/.codex/config.toml`, which the
 ChatGPT desktop app, Codex CLI and the IDE extension all share. Fully quit and
@@ -130,10 +132,11 @@ mutation-capable tools are omitted from registration, so `delete_card`,
 returns `Unknown tool`. Set it to `false` only when intentional Trello changes
 should be possible.
 
-Credentials live in `.env` (gitignored), never in `~/.codex/config.toml`, which
-is shared configuration. Never add Trello API keys, tokens, board exports or
-customer data to source control, prompts, logs, issues or pull requests. See
-[SECURITY.md](SECURITY.md).
+The native installer keeps the public app key under `%LOCALAPPDATA%\trello-mcp`
+and the user token in Windows Credential Manager. A `.env` file remains a
+gitignored compatibility option for network/Docker deployments; never add
+Trello API keys, tokens, board exports or customer data to source control,
+prompts, logs, issues or pull requests. See [SECURITY.md](SECURITY.md).
 
 ---
 

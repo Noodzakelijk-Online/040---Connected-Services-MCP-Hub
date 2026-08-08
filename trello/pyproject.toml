@@ -14,6 +14,9 @@ dependencies = [
     # Imported by server/settings.py; previously undeclared, so a clean
     # install produced ModuleNotFoundError at import time.
     "python-dotenv>=1.0.0",
+    # Native Windows setup stores the user token in Credential Manager rather
+    # than a project .env file.
+    "keyring>=25.0.0",
     # Imported by main.py for Streamable HTTP mode; likewise undeclared.
     "uvicorn>=0.30.0",
 ]
